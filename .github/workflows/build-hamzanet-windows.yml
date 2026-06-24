@@ -1,0 +1,59 @@
+name: Build HamzaNet Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout HamzaNet builder
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Clone DDNet source
+        shell: pwsh
+        run: |
+          git clone --depth 1 --recursive --shallow-submodules https://github.com/ddnet/ddnet ddnet
+
+      - name: Apply HamzaNet changes
+        shell: pwsh
+        run: |
+          python .\apply_hamzanet.py .\ddnet
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake -S ddnet -B build -G "Visual Studio 17 2022" -A x64 -DPREFER_BUNDLED_LIBS=ON -DVULKAN=OFF -DVIDEORECORDER=OFF -DWEBSOCKETS=OFF
+
+      - name: Build client
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target game-client --parallel 2
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "game-client target failed. Trying full build..."
+            cmake --build build --config Release --parallel 2
+          }
+
+      - name: Collect files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Get-ChildItem -Path build -Recurse -Include *.exe,*.dll | Where-Object { $_.FullName -match "Release|release" } | Copy-Item -Destination out -Force
+          if (Test-Path ddnet\data) { Copy-Item -Path ddnet\data -Destination out\data -Recurse -Force }
+          if (Test-Path README_DE.md) { Copy-Item -Path README_DE.md -Destination out\README_HamzaNet_DE.txt -Force }
+          Compress-Archive -Path out\* -DestinationPath HamzaNet-Windows.zip -Force
+
+      - name: Upload HamzaNet artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HamzaNet-Windows
+          path: HamzaNet-Windows.zip
