@@ -32,16 +32,12 @@ jobs:
       - name: Configure CMake
         shell: pwsh
         run: |
-          cmake -S ddnet -B build -G "Visual Studio 17 2022" -A x64 -DPREFER_BUNDLED_LIBS=ON -DVULKAN=OFF -DVIDEORECORDER=OFF -DWEBSOCKETS=OFF
+          cmake -S ddnet -B build -G "Visual Studio 17 2022" -A x64 -DPREFER_BUNDLED_LIBS=ON -DVULKAN=OFF -DVIDEORECORDER=OFF -DWEBSOCKETS=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL
 
       - name: Build client
         shell: pwsh
         run: |
-          cmake --build build --config Release --target game-client --parallel 2
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "game-client target failed. Trying full build..."
-            cmake --build build --config Release --parallel 2
-          }
+          cmake --build build --config Release --parallel 2
 
       - name: Collect files
         shell: pwsh
